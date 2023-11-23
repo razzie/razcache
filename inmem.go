@@ -10,8 +10,14 @@ import (
 	"github.com/puzpuzpuz/xsync"
 )
 
-// special pointer to mark a janitor deleted item
-var deletedItem = &util.EQItem{}
+var (
+	// special pointer to mark a janitor deleted item
+	deletedItem = &util.EQItem{}
+
+	ErrNotFound     = fmt.Errorf("key not found")
+	ErrTypeMismatch = fmt.Errorf("type mismatch")
+	ErrEmptyList    = fmt.Errorf("empty list")
+)
 
 type item struct {
 	value   any
@@ -90,12 +96,12 @@ func (c *inMemCache) Set(key, value string, ttl time.Duration) error {
 func (c *inMemCache) Get(key string) (string, error) {
 	item, ok := c.items.Load(key)
 	if !ok {
-		return "", fmt.Errorf("not found: %s", key)
+		return "", ErrNotFound
 	}
 	if value, ok := item.value.(string); ok {
 		return value, nil
 	}
-	return "", fmt.Errorf("type mismatch")
+	return "", ErrTypeMismatch
 }
 
 func (c *inMemCache) Del(key string) error {
@@ -106,7 +112,7 @@ func (c *inMemCache) Del(key string) error {
 func (c *inMemCache) GetTTL(key string) (time.Duration, error) {
 	item, ok := c.items.Load(key)
 	if !ok {
-		return 0, fmt.Errorf("not found: %s", key)
+		return 0, ErrNotFound
 	}
 	// NOTICE: ttlData could be missing if the TTL hasn't been processed yet by the janitor
 	ttlData := item.ttlData.Load()
@@ -119,7 +125,7 @@ func (c *inMemCache) GetTTL(key string) (time.Duration, error) {
 func (c *inMemCache) SetTTL(key string, ttl time.Duration) error {
 	item, ok := c.items.Load(key)
 	if !ok {
-		return fmt.Errorf("not found: %s", key)
+		return ErrNotFound
 	}
 	if ttl == 0 {
 		c.ttlUpdateChan <- ttlUpdate{
@@ -144,7 +150,7 @@ func (c *inMemCache) getList(key string) (*util.List, error) {
 	if value, ok := item.value.(*util.List); ok {
 		return value, nil
 	}
-	return nil, fmt.Errorf("not a list")
+	return nil, ErrTypeMismatch
 }
 
 func (c *inMemCache) LPush(key string, values ...string) error {
@@ -172,7 +178,7 @@ func (c *inMemCache) LPop(key string) (string, error) {
 	}
 	value := list.PopFront()
 	if value == nil {
-		return "", fmt.Errorf("empty list")
+		return "", ErrEmptyList
 	}
 	return value.(string), nil
 }
@@ -184,7 +190,7 @@ func (c *inMemCache) RPop(key string) (string, error) {
 	}
 	value := list.PopBack()
 	if value == nil {
-		return "", fmt.Errorf("empty list")
+		return "", ErrEmptyList
 	}
 	return value.(string), nil
 }
@@ -204,7 +210,7 @@ func (c *inMemCache) getSet(key string) (*xsync.Map, error) {
 	if value, ok := item.value.(*xsync.Map); ok {
 		return value, nil
 	}
-	return nil, fmt.Errorf("not a set")
+	return nil, ErrTypeMismatch
 }
 
 func (c *inMemCache) SAdd(key string, values ...string) error {
