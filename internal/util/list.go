@@ -9,10 +9,10 @@ type List struct {
 	slice []interface{}
 }
 
-func (l *List) PushFront(value interface{}) {
+func (l *List) PushFront(values ...interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.slice = append([]interface{}{value}, l.slice...)
+	l.slice = append(values, l.slice...)
 }
 
 func (l *List) PopFront() interface{} {
@@ -28,10 +28,10 @@ func (l *List) PopFront() interface{} {
 	return value
 }
 
-func (l *List) PushBack(value interface{}) {
+func (l *List) PushBack(values ...interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.slice = append(l.slice, value)
+	l.slice = append(l.slice, values...)
 }
 
 func (l *List) PopBack() interface{} {

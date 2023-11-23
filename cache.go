@@ -11,14 +11,14 @@ type Cache interface {
 	GetTTL(key string) (time.Duration, error)
 	SetTTL(key string, ttl time.Duration) error
 
-	LPush(key, value string) error
-	RPush(key, value string) error
+	LPush(key string, values ...string) error
+	RPush(key string, values ...string) error
 	LPop(key string) (string, error)
 	RPop(key string) (string, error)
 	LLen(key string) (int, error)
 
-	SAdd(key, value string) error
-	SRem(key, value string) error
+	SAdd(key string, values ...string) error
+	SRem(key string, values ...string) error
 	SHas(key, value string) (bool, error)
 	SLen(key string) (int, error)
 }

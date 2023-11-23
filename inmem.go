@@ -147,21 +147,21 @@ func (c *inMemCache) getList(key string) (*util.List, error) {
 	return nil, fmt.Errorf("not a list")
 }
 
-func (c *inMemCache) LPush(key, value string) error {
+func (c *inMemCache) LPush(key string, values ...string) error {
 	list, err := c.getList(key)
 	if err != nil {
 		return err
 	}
-	list.PushFront(value)
+	list.PushFront(util.StringToAnySlice(values)...)
 	return nil
 }
 
-func (c *inMemCache) RPush(key, value string) error {
+func (c *inMemCache) RPush(key string, values ...string) error {
 	list, err := c.getList(key)
 	if err != nil {
 		return err
 	}
-	list.PushBack(value)
+	list.PushBack(util.StringToAnySlice(values)...)
 	return nil
 }
 
@@ -207,21 +207,25 @@ func (c *inMemCache) getSet(key string) (*xsync.Map, error) {
 	return nil, fmt.Errorf("not a set")
 }
 
-func (c *inMemCache) SAdd(key, value string) error {
+func (c *inMemCache) SAdd(key string, values ...string) error {
 	set, err := c.getSet(key)
 	if err != nil {
 		return err
 	}
-	set.Store(value, true)
+	for _, value := range values {
+		set.Store(value, true)
+	}
 	return nil
 }
 
-func (c *inMemCache) SRem(key, value string) error {
+func (c *inMemCache) SRem(key string, values ...string) error {
 	set, err := c.getSet(key)
 	if err != nil {
 		return err
 	}
-	set.Delete(value)
+	for _, value := range values {
+		set.Delete(value)
+	}
 	return nil
 }
 

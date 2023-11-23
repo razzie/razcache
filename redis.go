@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/razzie/razcache/internal/util"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -41,12 +42,12 @@ func (c *redisCache) SetTTL(key string, ttl time.Duration) error {
 	return c.client.Expire(context.Background(), key, ttl).Err()
 }
 
-func (c *redisCache) LPush(key string, value string) error {
-	return c.client.LPush(context.Background(), key, value).Err()
+func (c *redisCache) LPush(key string, values ...string) error {
+	return c.client.LPush(context.Background(), key, util.StringToAnySlice(values)...).Err()
 }
 
-func (c *redisCache) RPush(key, value string) error {
-	return c.client.RPush(context.Background(), key, value).Err()
+func (c *redisCache) RPush(key string, values ...string) error {
+	return c.client.RPush(context.Background(), key, util.StringToAnySlice(values)...).Err()
 }
 
 func (c *redisCache) LPop(key string) (string, error) {
@@ -62,12 +63,12 @@ func (c *redisCache) LLen(key string) (int, error) {
 	return int(result), err
 }
 
-func (c *redisCache) SAdd(key, value string) error {
-	return c.client.SAdd(context.Background(), key, value).Err()
+func (c *redisCache) SAdd(key string, values ...string) error {
+	return c.client.SAdd(context.Background(), key, util.StringToAnySlice(values)...).Err()
 }
 
-func (c *redisCache) SRem(key, value string) error {
-	return c.client.SRem(context.Background(), key, value).Err()
+func (c *redisCache) SRem(key string, values ...string) error {
+	return c.client.SRem(context.Background(), key, util.StringToAnySlice(values)...).Err()
 }
 
 func (c *redisCache) SHas(key, value string) (bool, error) {
