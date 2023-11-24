@@ -7,7 +7,7 @@ import (
 
 	"github.com/razzie/razcache/internal/util"
 
-	"github.com/puzpuzpuz/xsync"
+	"github.com/puzpuzpuz/xsync/v3"
 )
 
 var (
@@ -36,13 +36,13 @@ type inMemCache struct {
 	ttlUpdateChan chan ttlUpdate
 }
 
-func NewInMemCache(tickerInterval time.Duration) (Cache, error) {
+func NewInMemCache(tickerInterval time.Duration) Cache {
 	cache := &inMemCache{
-		items:         *xsync.NewMapOf[*item](),
+		items:         *xsync.NewMapOf[string, *item](),
 		ttlUpdateChan: make(chan ttlUpdate, 64),
 	}
 	go cache.janitor(tickerInterval)
-	return cache, nil
+	return cache
 }
 
 func (c *inMemCache) janitor(tickerInterval time.Duration) {
@@ -145,7 +145,7 @@ func (c *inMemCache) SetTTL(key string, ttl time.Duration) error {
 
 func (c *inMemCache) getList(key string) (*util.List, error) {
 	item, _ := c.items.LoadOrCompute(key, func() *item {
-		return &item{value: &util.List{}}
+		return &item{value: new(util.List)}
 	})
 	if value, ok := item.value.(*util.List); ok {
 		return value, nil
