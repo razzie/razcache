@@ -36,18 +36,18 @@ type inMemCache struct {
 	ttlUpdateChan chan ttlUpdate
 }
 
-func NewInMemCache(tickerInterval time.Duration) Cache {
+func NewInMemCache() Cache {
 	cache := &inMemCache{
 		items:         *xsync.NewMapOf[string, *item](),
 		ttlUpdateChan: make(chan ttlUpdate, 64),
 	}
-	go cache.janitor(tickerInterval)
+	go cache.janitor()
 	return cache
 }
 
-func (c *inMemCache) janitor(tickerInterval time.Duration) {
-	ticker := time.NewTicker(tickerInterval)
-	defer ticker.Stop()
+func (c *inMemCache) janitor() {
+	timer := time.NewTimer(time.Millisecond)
+	defer timer.Stop()
 	for {
 		select {
 		case ttlUpdate, more := <-c.ttlUpdateChan:
@@ -65,8 +65,11 @@ func (c *inMemCache) janitor(tickerInterval time.Duration) {
 			} else { // creating new TTL
 				ttlUpdate.item.ttlData.Store(c.ttlQueue.Push(ttlUpdate.key, ttlUpdate.exp))
 			}
+			if c.ttlQueue.Len() > 0 { // set timer to trigger when the first key expires
+				timer.Reset(c.ttlQueue.Peek().Expiration().Sub(time.Now()))
+			}
 
-		case <-ticker.C:
+		case <-timer.C:
 			// check if the next items are about to expire
 			for c.ttlQueue.Len() > 0 && c.ttlQueue.Peek().Expiration().Before(time.Now()) {
 				ttlData := c.ttlQueue.Pop()

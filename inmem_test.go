@@ -9,7 +9,7 @@ import (
 )
 
 func TestTTL(t *testing.T) {
-	cache := NewInMemCache(time.Millisecond * 250)
+	cache := NewInMemCache()
 	defer cache.(io.Closer).Close()
 
 	// key should be present before expiration and gone afterwards
@@ -38,7 +38,7 @@ func TestTTL(t *testing.T) {
 }
 
 func TestLists(t *testing.T) {
-	cache := NewInMemCache(time.Millisecond * 250)
+	cache := NewInMemCache()
 	defer cache.(io.Closer).Close()
 
 	// make a list of 1, 2, 3, 4, 5 using both LPush and RPush
@@ -73,7 +73,7 @@ func TestLists(t *testing.T) {
 }
 
 func TestSets(t *testing.T) {
-	cache := NewInMemCache(time.Millisecond * 250)
+	cache := NewInMemCache()
 	defer cache.(io.Closer).Close()
 
 	// adding members in multiple steps and asserting correct length
