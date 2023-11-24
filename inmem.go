@@ -47,9 +47,13 @@ func NewInMemCache(tickerInterval time.Duration) Cache {
 
 func (c *inMemCache) janitor(tickerInterval time.Duration) {
 	ticker := time.NewTicker(tickerInterval)
+	defer ticker.Stop()
 	for {
 		select {
-		case ttlUpdate := <-c.ttlUpdateChan:
+		case ttlUpdate, more := <-c.ttlUpdateChan:
+			if !more {
+				return
+			}
 			ttlData := ttlUpdate.item.ttlData.Load()
 			if ttlData != nil { // TTL for item already exists
 				if ttlUpdate.exp.IsZero() { // removing TTL
@@ -250,4 +254,10 @@ func (c *inMemCache) SLen(key string) (int, error) {
 		return 0, err
 	}
 	return set.Size(), nil
+}
+
+func (c *inMemCache) Close() error {
+	close(c.ttlUpdateChan)
+	c.items.Clear()
+	return nil
 }

@@ -1,6 +1,7 @@
 package razcache
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 func TestTTL(t *testing.T) {
 	cache := NewInMemCache(time.Millisecond * 250)
+	defer cache.(io.Closer).Close()
 
 	// key should be present before expiration and gone afterwards
 	assert.Nil(t, cache.Set("key_longrunning", "value", time.Millisecond*2000))
@@ -37,6 +39,7 @@ func TestTTL(t *testing.T) {
 
 func TestLists(t *testing.T) {
 	cache := NewInMemCache(time.Millisecond * 250)
+	defer cache.(io.Closer).Close()
 
 	// make a list of 1, 2, 3, 4, 5 using both LPush and RPush
 	assert.Nil(t, cache.LPush("list", "3"))
@@ -71,6 +74,7 @@ func TestLists(t *testing.T) {
 
 func TestSets(t *testing.T) {
 	cache := NewInMemCache(time.Millisecond * 250)
+	defer cache.(io.Closer).Close()
 
 	// adding members in multiple steps and asserting correct length
 	assert.Nil(t, cache.SAdd("set", "a", "b", "c"))
