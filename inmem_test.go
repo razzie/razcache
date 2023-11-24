@@ -11,6 +11,7 @@ func TestTTL(t *testing.T) {
 	cache := NewInMemCache(time.Millisecond * 250)
 
 	// key should be present before expiration and gone afterwards
+	assert.Nil(t, cache.Set("key_longrunning", "value", time.Millisecond*2000))
 	assert.Nil(t, cache.Set("key", "value", time.Millisecond*500))
 	value, err := cache.Get("key")
 	assert.Nil(t, err)
