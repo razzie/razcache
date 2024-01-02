@@ -79,3 +79,7 @@ func (c *redisCache) SLen(key string) (int, error) {
 	result, err := c.client.SCard(context.Background(), key).Result()
 	return int(result), err
 }
+
+func (c *redisCache) SubCache(prefix string) Cache {
+	return NewPrefixCache(c, prefix)
+}

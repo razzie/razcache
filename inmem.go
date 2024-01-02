@@ -259,6 +259,10 @@ func (c *inMemCache) SLen(key string) (int, error) {
 	return set.Size(), nil
 }
 
+func (c *inMemCache) SubCache(prefix string) Cache {
+	return NewPrefixCache(c, prefix)
+}
+
 func (c *inMemCache) Close() error {
 	close(c.ttlUpdateChan)
 	c.items.Clear()

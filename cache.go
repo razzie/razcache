@@ -21,4 +21,6 @@ type Cache interface {
 	SRem(key string, values ...string) error
 	SHas(key, value string) (bool, error)
 	SLen(key string) (int, error)
+
+	SubCache(prefix string) Cache
 }
