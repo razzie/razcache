@@ -1,7 +1,6 @@
 package razcache
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -13,10 +12,6 @@ import (
 var (
 	// special pointer to mark a janitor deleted item
 	deletedItem = &util.EQItem{}
-
-	ErrNotFound     = fmt.Errorf("key not found")
-	ErrTypeMismatch = fmt.Errorf("type mismatch")
-	ErrEmptyList    = fmt.Errorf("empty list")
 )
 
 type item struct {
@@ -108,7 +103,7 @@ func (c *inMemCache) Get(key string) (string, error) {
 	if value, ok := item.value.(string); ok {
 		return value, nil
 	}
-	return "", ErrTypeMismatch
+	return "", ErrWrongType
 }
 
 func (c *inMemCache) Del(key string) error {
@@ -157,7 +152,7 @@ func (c *inMemCache) getList(key string) (*util.List, error) {
 	if value, ok := item.value.(*util.List); ok {
 		return value, nil
 	}
-	return nil, ErrTypeMismatch
+	return nil, ErrWrongType
 }
 
 func (c *inMemCache) LPush(key string, values ...string) error {
@@ -185,7 +180,7 @@ func (c *inMemCache) LPop(key string) (string, error) {
 	}
 	value := list.PopFront()
 	if value == nil {
-		return "", ErrEmptyList
+		return "", ErrNotFound
 	}
 	return value.(string), nil
 }
@@ -197,7 +192,7 @@ func (c *inMemCache) RPop(key string) (string, error) {
 	}
 	value := list.PopBack()
 	if value == nil {
-		return "", ErrEmptyList
+		return "", ErrNotFound
 	}
 	return value.(string), nil
 }
@@ -217,7 +212,7 @@ func (c *inMemCache) getSet(key string) (*xsync.Map, error) {
 	if value, ok := item.value.(*xsync.Map); ok {
 		return value, nil
 	}
-	return nil, ErrTypeMismatch
+	return nil, ErrWrongType
 }
 
 func (c *inMemCache) SAdd(key string, values ...string) error {

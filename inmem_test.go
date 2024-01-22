@@ -61,15 +61,15 @@ func TestLists(t *testing.T) {
 		assert.Nil(t, err)
 	}
 	_, err = cache.RPop("list")
-	assert.Equal(t, ErrEmptyList, err)
+	assert.Equal(t, ErrNotFound, err)
 
 	// testing list functions on non-list keys
 	assert.Nil(t, cache.Set("non-list", "value", 0))
 	_, err = cache.LLen("non-list")
-	assert.Equal(t, ErrTypeMismatch, err)
-	assert.Equal(t, ErrTypeMismatch, cache.LPush("non-list", "1"))
+	assert.Equal(t, ErrWrongType, err)
+	assert.Equal(t, ErrWrongType, cache.LPush("non-list", "1"))
 	_, err = cache.LPop("non-list")
-	assert.Equal(t, ErrTypeMismatch, err)
+	assert.Equal(t, ErrWrongType, err)
 }
 
 func TestSets(t *testing.T) {
@@ -92,7 +92,7 @@ func TestSets(t *testing.T) {
 	// testing set functions on non-set keys
 	assert.Nil(t, cache.Set("non-set", "value", 0))
 	_, err = cache.SLen("non-set")
-	assert.Equal(t, ErrTypeMismatch, err)
-	assert.Equal(t, ErrTypeMismatch, cache.SAdd("non-set", "a"))
-	assert.Equal(t, ErrTypeMismatch, cache.SRem("non-set"))
+	assert.Equal(t, ErrWrongType, err)
+	assert.Equal(t, ErrWrongType, cache.SAdd("non-set", "a"))
+	assert.Equal(t, ErrWrongType, cache.SRem("non-set"))
 }
