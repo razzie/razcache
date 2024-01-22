@@ -1,6 +1,7 @@
 package razcache
 
 import (
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -14,26 +15,41 @@ var (
 	deletedItem = &util.EQItem{}
 )
 
-type item struct {
-	value   any
+type cacheItem struct {
+	value   atomic.Pointer[any]
 	ttlData atomic.Pointer[util.EQItem]
+}
+
+func newCacheItem(value any) *cacheItem {
+	item := new(cacheItem)
+	item.setValue(value)
+	return item
+}
+
+func (item *cacheItem) setValue(value any) {
+	item.value.Store(&value)
+}
+
+func (item *cacheItem) getValue() any {
+	value := item.value.Load()
+	return *value
 }
 
 type ttlUpdate struct {
 	key  string
-	item *item
+	item *cacheItem
 	exp  time.Time
 }
 
 type inMemCache struct {
-	items         xsync.MapOf[string, *item]
+	items         xsync.MapOf[string, *cacheItem]
 	ttlQueue      util.ExpirationQueue
 	ttlUpdateChan chan ttlUpdate
 }
 
 func NewInMemCache() Cache {
 	cache := &inMemCache{
-		items:         *xsync.NewMapOf[string, *item](),
+		items:         *xsync.NewMapOf[string, *cacheItem](),
 		ttlUpdateChan: make(chan ttlUpdate, 64),
 	}
 	go cache.janitor()
@@ -79,7 +95,7 @@ func (c *inMemCache) janitor() {
 }
 
 func (c *inMemCache) Set(key, value string, ttl time.Duration) error {
-	item := &item{value: value}
+	item := newCacheItem(value)
 	old, _ := c.items.LoadAndStore(key, item)
 	if ttl != 0 {
 		c.ttlUpdateChan <- ttlUpdate{
@@ -100,10 +116,14 @@ func (c *inMemCache) Get(key string) (string, error) {
 	if !ok {
 		return "", ErrNotFound
 	}
-	if value, ok := item.value.(string); ok {
+	switch value := item.getValue().(type) {
+	case string:
 		return value, nil
+	case *int64:
+		return strconv.FormatInt(*value, 10), nil
+	default:
+		return "", ErrWrongType
 	}
-	return "", ErrWrongType
 }
 
 func (c *inMemCache) Del(key string) error {
@@ -146,10 +166,10 @@ func (c *inMemCache) SetTTL(key string, ttl time.Duration) error {
 }
 
 func (c *inMemCache) getList(key string) (*util.List, error) {
-	item, _ := c.items.LoadOrCompute(key, func() *item {
-		return &item{value: new(util.List)}
+	item, _ := c.items.LoadOrCompute(key, func() *cacheItem {
+		return newCacheItem(new(util.List))
 	})
-	if value, ok := item.value.(*util.List); ok {
+	if value, ok := item.getValue().(*util.List); ok {
 		return value, nil
 	}
 	return nil, ErrWrongType
@@ -206,10 +226,10 @@ func (c *inMemCache) LRange(key string, start, stop int) ([]string, error) {
 }
 
 func (c *inMemCache) getSet(key string) (*xsync.Map, error) {
-	item, _ := c.items.LoadOrCompute(key, func() *item {
-		return &item{value: xsync.NewMap()}
+	item, _ := c.items.LoadOrCompute(key, func() *cacheItem {
+		return newCacheItem(xsync.NewMap())
 	})
-	if value, ok := item.value.(*xsync.Map); ok {
+	if value, ok := item.getValue().(*xsync.Map); ok {
 		return value, nil
 	}
 	return nil, ErrWrongType
@@ -252,6 +272,30 @@ func (c *inMemCache) SLen(key string) (int, error) {
 		return 0, err
 	}
 	return set.Size(), nil
+}
+
+func (c *inMemCache) Incr(key string, increment int64) (int64, error) {
+	item, loaded := c.items.LoadOrCompute(key, func() *cacheItem {
+		value := int64(1)
+		return newCacheItem(&value)
+	})
+	if !loaded {
+		return 1, nil
+	}
+	switch value := item.getValue().(type) {
+	case string:
+		i, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return 0, ErrWrongType
+		}
+		i += increment
+		item.setValue(&i) // TODO: figure out how to do the whole operation atomically when the underlying type is string
+		return i, nil
+	case *int64:
+		return atomic.AddInt64(value, increment), nil
+	default:
+		return 0, ErrWrongType
+	}
 }
 
 func (c *inMemCache) SubCache(prefix string) Cache {

@@ -76,6 +76,10 @@ func (c *prefixCache) SLen(key string) (int, error) {
 	return c.cache.SLen(c.prefix + key)
 }
 
+func (c *prefixCache) Incr(key string, increment int64) (int64, error) {
+	return c.cache.Incr(key, increment)
+}
+
 func (c *prefixCache) SubCache(prefix string) Cache {
 	return NewPrefixCache(c, prefix)
 }

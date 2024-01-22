@@ -97,6 +97,11 @@ func (c *redisCache) SLen(key string) (int, error) {
 	return int(result), translateRedisError(err)
 }
 
+func (c *redisCache) Incr(key string, increment int64) (int64, error) {
+	result, err := c.client.IncrBy(context.Background(), key, increment).Result()
+	return result, translateRedisError(err)
+}
+
 func (c *redisCache) SubCache(prefix string) Cache {
 	return NewPrefixCache(c, prefix)
 }

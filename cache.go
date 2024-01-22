@@ -23,5 +23,7 @@ type Cache interface {
 	SHas(key, value string) (bool, error)
 	SLen(key string) (int, error)
 
+	Incr(key string, increment int64) (int64, error)
+
 	SubCache(prefix string) Cache
 }

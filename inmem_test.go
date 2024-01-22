@@ -107,3 +107,35 @@ func TestSets(t *testing.T) {
 	assert.Equal(t, ErrWrongType, cache.SAdd("non-set", "a"))
 	assert.Equal(t, ErrWrongType, cache.SRem("non-set"))
 }
+
+func TestIncr(t *testing.T) {
+	cache := NewInMemCache()
+	defer cache.(io.Closer).Close()
+
+	// strings that cannot be converted to int should fail with wrong type
+	assert.NoError(t, cache.Set("non-int", "a", 0))
+	_, err := cache.Incr("non-int", 1)
+	assert.Equal(t, ErrWrongType, err)
+
+	// strings that can be converted to int should work
+	assert.NoError(t, cache.Set("int", "2", 0))
+	value, err := cache.Incr("int", 2)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(4), value)
+
+	// further increments should work too
+	value, err = cache.Incr("int", 1)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(5), value)
+
+	// the internal type became int64 after increment(s)
+	// let's make sure Get still works on it
+	str, err := cache.Get("int")
+	assert.NoError(t, err)
+	assert.Equal(t, "5", str)
+
+	// non-existing key acts like a 0
+	value, err = cache.Incr("new", 1)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), value)
+}
