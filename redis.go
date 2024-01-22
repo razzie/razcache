@@ -9,7 +9,7 @@ import (
 )
 
 type redisCache struct {
-	client *redis.Client
+	client redis.Cmdable
 }
 
 func NewRedisCache(redisDSN string) (Cache, error) {
@@ -20,6 +20,12 @@ func NewRedisCache(redisDSN string) (Cache, error) {
 	return &redisCache{
 		client: redis.NewClient(opts),
 	}, nil
+}
+
+func NewRedisCacheFromClient(client redis.Cmdable) Cache {
+	return &redisCache{
+		client: client,
+	}
 }
 
 func (c *redisCache) Set(key, value string, ttl time.Duration) error {
