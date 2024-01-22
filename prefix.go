@@ -44,16 +44,20 @@ func (c *prefixCache) RPush(key string, values ...string) error {
 	return c.cache.RPush(c.prefix+key, values...)
 }
 
-func (c *prefixCache) LPop(key string) (string, error) {
-	return c.cache.LPop(c.prefix + key)
+func (c *prefixCache) LPop(key string, count int) ([]string, error) {
+	return c.cache.LPop(c.prefix+key, count)
 }
 
-func (c *prefixCache) RPop(key string) (string, error) {
-	return c.cache.RPop(c.prefix + key)
+func (c *prefixCache) RPop(key string, count int) ([]string, error) {
+	return c.cache.RPop(c.prefix+key, count)
 }
 
 func (c *prefixCache) LLen(key string) (int, error) {
 	return c.cache.LLen(c.prefix + key)
+}
+
+func (c *prefixCache) LRange(key string, start, stop int) ([]string, error) {
+	return c.cache.LRange(c.prefix+key, start, stop)
 }
 
 func (c *prefixCache) SAdd(key string, values ...string) error {

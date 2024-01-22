@@ -57,19 +57,24 @@ func (c *redisCache) RPush(key string, values ...string) error {
 	return translateRedisError(err)
 }
 
-func (c *redisCache) LPop(key string) (string, error) {
-	result, err := c.client.LPop(context.Background(), key).Result()
+func (c *redisCache) LPop(key string, count int) ([]string, error) {
+	result, err := c.client.LPopCount(context.Background(), key, count).Result()
 	return result, translateRedisError(err)
 }
 
-func (c *redisCache) RPop(key string) (string, error) {
-	result, err := c.client.RPop(context.Background(), key).Result()
+func (c *redisCache) RPop(key string, count int) ([]string, error) {
+	result, err := c.client.RPopCount(context.Background(), key, count).Result()
 	return result, translateRedisError(err)
 }
 
 func (c *redisCache) LLen(key string) (int, error) {
 	result, err := c.client.LLen(context.Background(), key).Result()
 	return int(result), translateRedisError(err)
+}
+
+func (c *redisCache) LRange(key string, start, stop int) ([]string, error) {
+	result, err := c.client.LRange(context.Background(), key, int64(start), int64(stop)).Result()
+	return result, translateRedisError(err)
 }
 
 func (c *redisCache) SAdd(key string, values ...string) error {

@@ -160,7 +160,7 @@ func (c *inMemCache) LPush(key string, values ...string) error {
 	if err != nil {
 		return err
 	}
-	list.PushFront(util.StringToAnySlice(values)...)
+	list.PushFront(values...)
 	return nil
 }
 
@@ -169,32 +169,24 @@ func (c *inMemCache) RPush(key string, values ...string) error {
 	if err != nil {
 		return err
 	}
-	list.PushBack(util.StringToAnySlice(values)...)
+	list.PushBack(values...)
 	return nil
 }
 
-func (c *inMemCache) LPop(key string) (string, error) {
+func (c *inMemCache) LPop(key string, count int) ([]string, error) {
 	list, err := c.getList(key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	value := list.PopFront()
-	if value == nil {
-		return "", ErrNotFound
-	}
-	return value.(string), nil
+	return list.PopFront(count), nil
 }
 
-func (c *inMemCache) RPop(key string) (string, error) {
+func (c *inMemCache) RPop(key string, count int) ([]string, error) {
 	list, err := c.getList(key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	value := list.PopBack()
-	if value == nil {
-		return "", ErrNotFound
-	}
-	return value.(string), nil
+	return list.PopBack(count), nil
 }
 
 func (c *inMemCache) LLen(key string) (int, error) {
@@ -203,6 +195,14 @@ func (c *inMemCache) LLen(key string) (int, error) {
 		return 0, err
 	}
 	return list.Len(), nil
+}
+
+func (c *inMemCache) LRange(key string, start, stop int) ([]string, error) {
+	list, err := c.getList(key)
+	if err != nil {
+		return nil, err
+	}
+	return list.Range(start, stop), nil
 }
 
 func (c *inMemCache) getSet(key string) (*xsync.Map, error) {

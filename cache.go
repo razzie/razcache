@@ -13,9 +13,10 @@ type Cache interface {
 
 	LPush(key string, values ...string) error
 	RPush(key string, values ...string) error
-	LPop(key string) (string, error)
-	RPop(key string) (string, error)
+	LPop(key string, count int) ([]string, error)
+	RPop(key string, count int) ([]string, error)
 	LLen(key string) (int, error)
+	LRange(key string, start, stop int) ([]string, error)
 
 	SAdd(key string, values ...string) error
 	SRem(key string, values ...string) error
