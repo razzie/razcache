@@ -281,19 +281,25 @@ func (c *inMemCache) Incr(key string, increment int64) (int64, error) {
 	if !loaded {
 		return increment, nil
 	}
-	switch value := item.getValue().(type) {
-	case string:
-		i, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
+	for {
+		oldVal := item.value.Load()
+		switch value := (*oldVal).(type) {
+		case string:
+			i, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return 0, ErrWrongType
+			}
+			i += increment
+			var newVal any = &i
+			if !item.value.CompareAndSwap(oldVal, &newVal) {
+				continue
+			}
+			return i, nil
+		case *int64:
+			return atomic.AddInt64(value, increment), nil
+		default:
 			return 0, ErrWrongType
 		}
-		i += increment
-		item.setValue(&i) // TODO: figure out how to do the whole operation atomically when the underlying type is string
-		return i, nil
-	case *int64:
-		return atomic.AddInt64(value, increment), nil
-	default:
-		return 0, ErrWrongType
 	}
 }
 
