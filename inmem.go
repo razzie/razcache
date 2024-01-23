@@ -1,6 +1,7 @@
 package razcache
 
 import (
+	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -11,8 +12,11 @@ import (
 )
 
 var (
-	// special pointer to mark a janitor deleted item
-	deletedItem = &util.EQItem{}
+	// special pointers to mark a janitor deleted item
+	currentlyDeletingItem = &util.EQItem{}
+	deletedItem           = &util.EQItem{}
+	// special pointer to mark not yet processed TTL data
+	dummyTTLData = &util.EQItem{}
 )
 
 type cacheItem struct {
@@ -45,6 +49,7 @@ type inMemCache struct {
 	items         xsync.MapOf[string, *cacheItem]
 	ttlQueue      util.ExpirationQueue
 	ttlUpdateChan chan ttlUpdate
+	closed        atomic.Bool
 }
 
 func NewInMemCache() Cache {
@@ -63,10 +68,11 @@ func (c *inMemCache) janitor() {
 		select {
 		case ttlUpdate, more := <-c.ttlUpdateChan:
 			if !more {
+				c.ttlQueue.Clear()
 				return
 			}
 			ttlData := ttlUpdate.item.ttlData.Load()
-			if ttlData != nil { // TTL for item already exists
+			if ttlData != nil && ttlData != dummyTTLData { // TTL for item already exists
 				if ttlUpdate.exp.IsZero() { // removing TTL
 					ttlUpdate.item.ttlData.Store(nil)
 					c.ttlQueue.Delete(ttlData)
@@ -86,8 +92,9 @@ func (c *inMemCache) janitor() {
 				ttlData := c.ttlQueue.Pop()
 				key := ttlData.Value().(string)
 				// mark the item deleted by the janitor
-				if item, _ := c.items.Load(key); item != nil && item.ttlData.CompareAndSwap(ttlData, deletedItem) {
+				if item, _ := c.items.Load(key); item != nil && item.ttlData.CompareAndSwap(ttlData, currentlyDeletingItem) {
 					c.items.Delete(key)
+					item.ttlData.Store(deletedItem)
 				}
 			}
 		}
@@ -98,15 +105,27 @@ func (c *inMemCache) Set(key, value string, ttl time.Duration) error {
 	item := newCacheItem(value)
 	old, _ := c.items.LoadAndStore(key, item)
 	if ttl != 0 {
+		item.ttlData.Store(dummyTTLData)
 		c.ttlUpdateChan <- ttlUpdate{
 			key:  key,
 			item: item,
 			exp:  time.Now().Add(ttl),
 		}
 	}
-	// it's possible the janitor has just deleted the new item due to TTL inconsistency, so let's store it again
-	if old != nil && old.ttlData.CompareAndSwap(deletedItem, nil) {
-		c.items.Store(key, item)
+	// it's possible the janitor has just deleted the new item due to TTL inconsistency,
+	// so let's store it again
+	if old != nil {
+		for {
+			switch old.ttlData.Load() {
+			case currentlyDeletingItem:
+				runtime.Gosched() // wait for janitor to delete previous item
+			case deletedItem:
+				c.items.Store(key, item)
+				return nil
+			default:
+				return nil
+			}
+		}
 	}
 	return nil
 }
@@ -136,12 +155,22 @@ func (c *inMemCache) GetTTL(key string) (time.Duration, error) {
 	if !ok {
 		return 0, ErrNotFound
 	}
-	// NOTICE: ttlData could be missing if the TTL hasn't been processed yet by the janitor
-	ttlData := item.ttlData.Load()
-	if ttlData == nil {
-		return 0, nil
+	for {
+		ttlData := item.ttlData.Load()
+		switch ttlData {
+		case dummyTTLData:
+			if c.closed.Load() {
+				return 0, nil
+			}
+			runtime.Gosched() // wait for janitor to assign ttl data
+		case currentlyDeletingItem, deletedItem:
+			return 0, ErrNotFound
+		case nil:
+			return 0, nil
+		default:
+			return time.Until(ttlData.Expiration()), nil
+		}
 	}
-	return time.Until(ttlData.Expiration()), nil
 }
 
 func (c *inMemCache) SetTTL(key string, ttl time.Duration) error {
@@ -308,6 +337,7 @@ func (c *inMemCache) SubCache(prefix string) Cache {
 }
 
 func (c *inMemCache) Close() error {
+	c.closed.Store(true)
 	close(c.ttlUpdateChan)
 	c.items.Clear()
 	return nil

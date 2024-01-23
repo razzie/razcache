@@ -21,10 +21,6 @@ func (i EQItem) Expiration() time.Time {
 
 type expirationQueueImpl []*EQItem
 
-type ExpirationQueue struct {
-	q expirationQueueImpl
-}
-
 func (eq expirationQueueImpl) Len() int { return len(eq) }
 
 func (eq expirationQueueImpl) Less(i, j int) bool {
@@ -52,6 +48,10 @@ func (eq *expirationQueueImpl) Pop() any {
 	item.index = -1 // for safety
 	*eq = old[0 : n-1]
 	return item
+}
+
+type ExpirationQueue struct {
+	q expirationQueueImpl
 }
 
 func (eq *ExpirationQueue) Push(value any, expiration time.Time) *EQItem {
@@ -83,4 +83,8 @@ func (eq *ExpirationQueue) Delete(item *EQItem) {
 
 func (eq *ExpirationQueue) Len() int {
 	return eq.q.Len()
+}
+
+func (eq *ExpirationQueue) Clear() {
+	eq.q = nil
 }
