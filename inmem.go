@@ -77,7 +77,7 @@ func (c *inMemCache) janitor() {
 				ttlUpdate.item.ttlData.Store(c.ttlQueue.Push(ttlUpdate.key, ttlUpdate.exp))
 			}
 			if c.ttlQueue.Len() > 0 { // set timer to trigger when the first key expires
-				timer.Reset(c.ttlQueue.Peek().Expiration().Sub(time.Now()))
+				timer.Reset(time.Until(c.ttlQueue.Peek().Expiration()))
 			}
 
 		case <-timer.C:
@@ -141,7 +141,7 @@ func (c *inMemCache) GetTTL(key string) (time.Duration, error) {
 	if ttlData == nil {
 		return 0, nil
 	}
-	return ttlData.Expiration().Sub(time.Now()), nil
+	return time.Until(ttlData.Expiration()), nil
 }
 
 func (c *inMemCache) SetTTL(key string, ttl time.Duration) error {
