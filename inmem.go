@@ -276,11 +276,10 @@ func (c *inMemCache) SLen(key string) (int, error) {
 
 func (c *inMemCache) Incr(key string, increment int64) (int64, error) {
 	item, loaded := c.items.LoadOrCompute(key, func() *cacheItem {
-		value := int64(1)
-		return newCacheItem(&value)
+		return newCacheItem(&increment)
 	})
 	if !loaded {
-		return 1, nil
+		return increment, nil
 	}
 	switch value := item.getValue().(type) {
 	case string:

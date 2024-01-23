@@ -135,7 +135,7 @@ func TestIncr(t *testing.T) {
 	assert.Equal(t, "5", str)
 
 	// non-existing key acts like a 0
-	value, err = cache.Incr("new", 1)
+	value, err = cache.Incr("new", 10)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), value)
+	assert.Equal(t, int64(10), value)
 }
