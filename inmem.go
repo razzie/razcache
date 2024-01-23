@@ -13,15 +13,15 @@ import (
 
 var (
 	// special pointers to mark a janitor deleted item
-	currentlyDeletingItem = &util.EQItem{}
-	deletedItem           = &util.EQItem{}
+	currentlyDeletingItem = &util.TTLItem[string]{}
+	deletedItem           = &util.TTLItem[string]{}
 	// special pointer to mark not yet processed TTL data
-	dummyTTLData = &util.EQItem{}
+	dummyTTLData = &util.TTLItem[string]{}
 )
 
 type cacheItem struct {
 	value   atomic.Pointer[any]
-	ttlData atomic.Pointer[util.EQItem]
+	ttlData atomic.Pointer[util.TTLItem[string]]
 }
 
 func newCacheItem(value any) *cacheItem {
@@ -47,7 +47,7 @@ type ttlUpdate struct {
 
 type inMemCache struct {
 	items         xsync.MapOf[string, *cacheItem]
-	ttlQueue      util.ExpirationQueue
+	ttlQueue      util.TTLQueue[string]
 	ttlUpdateChan chan ttlUpdate
 	closed        atomic.Bool
 }
@@ -90,7 +90,7 @@ func (c *inMemCache) janitor() {
 			// check if the next items are about to expire
 			for c.ttlQueue.Len() > 0 && c.ttlQueue.Peek().Expiration().Before(time.Now()) {
 				ttlData := c.ttlQueue.Pop()
-				key := ttlData.Value().(string)
+				key := ttlData.Value()
 				// mark the item deleted by the janitor
 				if item, _ := c.items.Load(key); item != nil && item.ttlData.CompareAndSwap(ttlData, currentlyDeletingItem) {
 					c.items.Delete(key)
@@ -194,11 +194,11 @@ func (c *inMemCache) SetTTL(key string, ttl time.Duration) error {
 	return nil
 }
 
-func (c *inMemCache) getList(key string) (*util.List, error) {
+func (c *inMemCache) getList(key string) (*util.List[string], error) {
 	item, _ := c.items.LoadOrCompute(key, func() *cacheItem {
-		return newCacheItem(new(util.List))
+		return newCacheItem(new(util.List[string]))
 	})
-	if value, ok := item.getValue().(*util.List); ok {
+	if value, ok := item.getValue().(*util.List[string]); ok {
 		return value, nil
 	}
 	return nil, ErrWrongType

@@ -4,18 +4,18 @@ import (
 	"sync"
 )
 
-type List struct {
+type List[T any] struct {
 	mu    sync.Mutex
-	slice []string
+	slice []T
 }
 
-func (l *List) PushFront(values ...string) {
+func (l *List[T]) PushFront(values ...T) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.slice = append(values, l.slice...)
 }
 
-func (l *List) PopFront(count int) []string {
+func (l *List[T]) PopFront(count int) []T {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -33,13 +33,13 @@ func (l *List) PopFront(count int) []string {
 	return values
 }
 
-func (l *List) PushBack(values ...string) {
+func (l *List[T]) PushBack(values ...T) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.slice = append(l.slice, values...)
 }
 
-func (l *List) PopBack(count int) []string {
+func (l *List[T]) PopBack(count int) []T {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -59,13 +59,13 @@ func (l *List) PopBack(count int) []string {
 	return values
 }
 
-func (l *List) Len() int {
+func (l *List[T]) Len() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return len(l.slice)
 }
 
-func (l *List) Range(start, stop int) []string {
+func (l *List[T]) Range(start, stop int) []T {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
