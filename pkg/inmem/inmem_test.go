@@ -1,11 +1,11 @@
-package razcache_test
+package inmem_test
 
 import (
 	"io"
 	"testing"
 
-	. "github.com/razzie/razcache"
 	"github.com/razzie/razcache/internal/testutil"
+	. "github.com/razzie/razcache/pkg/inmem"
 )
 
 func TestInMemTTL(t *testing.T) {

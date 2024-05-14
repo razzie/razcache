@@ -1,4 +1,4 @@
-package razcache
+package inmem
 
 import (
 	"runtime"
@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/razzie/razcache"
 	"github.com/razzie/razcache/internal/util"
 
 	"github.com/puzpuzpuz/xsync/v3"
@@ -52,7 +53,7 @@ type inMemCache struct {
 	closed        atomic.Bool
 }
 
-func NewInMemCache() Cache {
+func NewInMemCache() razcache.Cache {
 	cache := &inMemCache{
 		items:         *xsync.NewMapOf[string, *cacheItem](),
 		ttlUpdateChan: make(chan ttlUpdate, 64),
@@ -133,7 +134,7 @@ func (c *inMemCache) Set(key, value string, ttl time.Duration) error {
 func (c *inMemCache) Get(key string) (string, error) {
 	item, ok := c.items.Load(key)
 	if !ok {
-		return "", ErrNotFound
+		return "", razcache.ErrNotFound
 	}
 	switch value := item.getValue().(type) {
 	case string:
@@ -141,7 +142,7 @@ func (c *inMemCache) Get(key string) (string, error) {
 	case *int64:
 		return strconv.FormatInt(*value, 10), nil
 	default:
-		return "", ErrWrongType
+		return "", razcache.ErrWrongType
 	}
 }
 
@@ -153,7 +154,7 @@ func (c *inMemCache) Del(key string) error {
 func (c *inMemCache) GetTTL(key string) (time.Duration, error) {
 	item, ok := c.items.Load(key)
 	if !ok {
-		return 0, ErrNotFound
+		return 0, razcache.ErrNotFound
 	}
 	for {
 		ttlData := item.ttlData.Load()
@@ -164,7 +165,7 @@ func (c *inMemCache) GetTTL(key string) (time.Duration, error) {
 			}
 			runtime.Gosched() // wait for janitor to assign ttl data
 		case currentlyDeletingItem, deletedItem:
-			return 0, ErrNotFound
+			return 0, razcache.ErrNotFound
 		case nil:
 			return 0, nil
 		default:
@@ -176,7 +177,7 @@ func (c *inMemCache) GetTTL(key string) (time.Duration, error) {
 func (c *inMemCache) SetTTL(key string, ttl time.Duration) error {
 	item, ok := c.items.Load(key)
 	if !ok {
-		return ErrNotFound
+		return razcache.ErrNotFound
 	}
 	if ttl == 0 {
 		c.ttlUpdateChan <- ttlUpdate{
@@ -201,7 +202,7 @@ func (c *inMemCache) getList(key string) (*util.List[string], error) {
 	if value, ok := item.getValue().(*util.List[string]); ok {
 		return value, nil
 	}
-	return nil, ErrWrongType
+	return nil, razcache.ErrWrongType
 }
 
 func (c *inMemCache) LPush(key string, values ...string) error {
@@ -261,7 +262,7 @@ func (c *inMemCache) getSet(key string) (*xsync.Map, error) {
 	if value, ok := item.getValue().(*xsync.Map); ok {
 		return value, nil
 	}
-	return nil, ErrWrongType
+	return nil, razcache.ErrWrongType
 }
 
 func (c *inMemCache) SAdd(key string, values ...string) error {
@@ -316,7 +317,7 @@ func (c *inMemCache) Incr(key string, increment int64) (int64, error) {
 		case string:
 			i, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
-				return 0, ErrWrongType
+				return 0, razcache.ErrWrongType
 			}
 			i += increment
 			var newVal any = &i
@@ -327,13 +328,13 @@ func (c *inMemCache) Incr(key string, increment int64) (int64, error) {
 		case *int64:
 			return atomic.AddInt64(value, increment), nil
 		default:
-			return 0, ErrWrongType
+			return 0, razcache.ErrWrongType
 		}
 	}
 }
 
-func (c *inMemCache) SubCache(prefix string) Cache {
-	return NewPrefixCache(c, prefix)
+func (c *inMemCache) SubCache(prefix string) razcache.Cache {
+	return razcache.NewPrefixCache(c, prefix)
 }
 
 func (c *inMemCache) Close() error {

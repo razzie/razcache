@@ -1,17 +1,16 @@
 package razcache_test
 
 import (
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	. "github.com/razzie/razcache"
+	"github.com/razzie/razcache/pkg/inmem"
 )
 
 func TestPrefixCache(t *testing.T) {
-	cache := NewInMemCache()
-	defer cache.(io.Closer).Close()
+	cache := inmem.NewInMemCache()
 
 	assert.NoError(t, cache.Set("a", "val_a", 0))
 	assert.NoError(t, cache.Set("prefix:b", "val_b", 0))

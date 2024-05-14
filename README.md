@@ -23,7 +23,10 @@ type Cache interface {
 	SubCache(prefix string) Cache
 }
 
+// pkg/inmem
 func NewInMemCache() Cache
+
+// pkg/redis
 func NewRedisCache(redisDSN string) (Cache, error)
 func NewRedisCacheFromClient(client redis.Cmdable) Cache
 ```

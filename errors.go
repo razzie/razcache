@@ -1,26 +1,10 @@
 package razcache
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/redis/go-redis/v9"
+	"errors"
 )
 
 var (
-	ErrNotFound  = fmt.Errorf("not found")
-	ErrWrongType = fmt.Errorf("wrong type")
+	ErrNotFound  = errors.New("not found")
+	ErrWrongType = errors.New("wrong type")
 )
-
-func translateRedisError(err error) error {
-	switch {
-	case err == nil:
-		return nil
-	case err == redis.Nil:
-		return ErrNotFound
-	case strings.HasPrefix(err.Error(), "WRONGTYPE"):
-		return ErrWrongType
-	default:
-		return err
-	}
-}

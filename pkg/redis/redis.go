@@ -1,9 +1,11 @@
-package razcache
+package redis
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	"github.com/razzie/razcache"
 	"github.com/razzie/razcache/internal/util"
 	"github.com/redis/go-redis/v9"
 )
@@ -12,7 +14,7 @@ type redisCache struct {
 	client redis.Cmdable
 }
 
-func NewRedisCache(redisDSN string) (Cache, error) {
+func NewRedisCache(redisDSN string) (razcache.Cache, error) {
 	opts, err := redis.ParseURL(redisDSN)
 	if err != nil {
 		return nil, err
@@ -22,7 +24,7 @@ func NewRedisCache(redisDSN string) (Cache, error) {
 	}, nil
 }
 
-func NewRedisCacheFromClient(client redis.Cmdable) Cache {
+func NewRedisCacheFromClient(client redis.Cmdable) razcache.Cache {
 	return &redisCache{
 		client: client,
 	}
@@ -108,6 +110,19 @@ func (c *redisCache) Incr(key string, increment int64) (int64, error) {
 	return result, translateRedisError(err)
 }
 
-func (c *redisCache) SubCache(prefix string) Cache {
-	return NewPrefixCache(c, prefix)
+func (c *redisCache) SubCache(prefix string) razcache.Cache {
+	return razcache.NewPrefixCache(c, prefix)
+}
+
+func translateRedisError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case err == redis.Nil:
+		return razcache.ErrNotFound
+	case strings.HasPrefix(err.Error(), "WRONGTYPE"):
+		return razcache.ErrWrongType
+	default:
+		return err
+	}
 }
