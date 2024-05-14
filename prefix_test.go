@@ -1,10 +1,12 @@
-package razcache
+package razcache_test
 
 import (
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	. "github.com/razzie/razcache"
 )
 
 func TestPrefixCache(t *testing.T) {
