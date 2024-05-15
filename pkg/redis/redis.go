@@ -14,7 +14,7 @@ type redisCache struct {
 	client redis.Cmdable
 }
 
-func NewRedisCache(redisDSN string) (razcache.Cache, error) {
+func NewRedisCache(redisDSN string) (razcache.ExtendedCache, error) {
 	opts, err := redis.ParseURL(redisDSN)
 	if err != nil {
 		return nil, err
@@ -24,7 +24,7 @@ func NewRedisCache(redisDSN string) (razcache.Cache, error) {
 	}, nil
 }
 
-func NewRedisCacheFromClient(client redis.Cmdable) razcache.Cache {
+func NewRedisCacheFromClient(client redis.Cmdable) razcache.ExtendedCache {
 	return &redisCache{
 		client: client,
 	}
@@ -112,6 +112,10 @@ func (c *redisCache) Incr(key string, increment int64) (int64, error) {
 
 func (c *redisCache) SubCache(prefix string) razcache.Cache {
 	return razcache.NewPrefixCache(c, prefix)
+}
+
+func (c *redisCache) SubExtendedCache(prefix string) razcache.ExtendedCache {
+	return razcache.NewPrefixExtendedCache(c, prefix)
 }
 
 func translateRedisError(err error) error {

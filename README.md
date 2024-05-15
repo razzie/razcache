@@ -3,8 +3,15 @@ type Cache interface {
 	Set(key, value string, ttl time.Duration) error
 	Get(key string) (string, error)
 	Del(key string) error
+
 	GetTTL(key string) (time.Duration, error)
 	SetTTL(key string, ttl time.Duration) error
+
+	SubCache(prefix string) Cache
+}
+
+type ExtendedCache interface {
+	Cache
 
 	LPush(key string, values ...string) error
 	RPush(key string, values ...string) error
@@ -20,13 +27,13 @@ type Cache interface {
 
 	Incr(key string, increment int64) (int64, error)
 
-	SubCache(prefix string) Cache
+	SubExtendedCache(prefix string) ExtendedCache
 }
 
 // pkg/inmem
-func NewInMemCache() Cache
+func NewInMemCache() ExtendedCache
 
 // pkg/redis
-func NewRedisCache(redisDSN string) (Cache, error)
-func NewRedisCacheFromClient(client redis.Cmdable) Cache
+func NewRedisCache(redisDSN string) (ExtendedCache, error)
+func NewRedisCacheFromClient(client redis.Cmdable) ExtendedCache
 ```

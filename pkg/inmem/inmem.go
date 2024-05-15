@@ -53,7 +53,7 @@ type inMemCache struct {
 	closed        atomic.Bool
 }
 
-func NewInMemCache() razcache.Cache {
+func NewInMemCache() razcache.ExtendedCache {
 	cache := &inMemCache{
 		items:         *xsync.NewMapOf[string, *cacheItem](),
 		ttlUpdateChan: make(chan ttlUpdate, 64),
@@ -335,6 +335,10 @@ func (c *inMemCache) Incr(key string, increment int64) (int64, error) {
 
 func (c *inMemCache) SubCache(prefix string) razcache.Cache {
 	return razcache.NewPrefixCache(c, prefix)
+}
+
+func (c *inMemCache) SubExtendedCache(prefix string) razcache.ExtendedCache {
+	return razcache.NewPrefixExtendedCache(c, prefix)
 }
 
 func (c *inMemCache) Close() error {

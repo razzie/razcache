@@ -35,7 +35,7 @@ func TestTTL(t *testing.T, cache Cache) {
 	time.Sleep(time.Second)
 }
 
-func TestLists(t *testing.T, cache Cache) {
+func TestLists(t *testing.T, cache ExtendedCache) {
 	// make a list of 1, 2, 3, 4, 5 using both LPush and RPush
 	assert.NoError(t, cache.LPush("list", "3"))
 	assert.NoError(t, cache.LPush("list", "1", "2"))
@@ -78,7 +78,7 @@ func TestLists(t *testing.T, cache Cache) {
 	assert.Equal(t, ErrWrongType, err)
 }
 
-func TestSets(t *testing.T, cache Cache) {
+func TestSets(t *testing.T, cache ExtendedCache) {
 	// adding members in multiple steps and asserting correct length
 	assert.NoError(t, cache.SAdd("set", "a", "b", "c"))
 	assert.NoError(t, cache.SAdd("set", "c", "d"))
@@ -100,7 +100,7 @@ func TestSets(t *testing.T, cache Cache) {
 	assert.Equal(t, ErrWrongType, cache.SRem("non-set"))
 }
 
-func TestIncr(t *testing.T, cache Cache) {
+func TestIncr(t *testing.T, cache ExtendedCache) {
 	// strings that cannot be converted to int should fail with wrong type
 	assert.NoError(t, cache.Set("non-int", "a", 0))
 	_, err := cache.Incr("non-int", 1)
