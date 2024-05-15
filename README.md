@@ -31,7 +31,8 @@ type ExtendedCache interface {
 }
 
 // pkg/inmem
-func NewInMemCache() ExtendedCache
+func NewInMemCache() Cache
+func NewInMemExtendedCache() ExtendedCache
 
 // pkg/redis
 func NewRedisCache(redisDSN string) (ExtendedCache, error)

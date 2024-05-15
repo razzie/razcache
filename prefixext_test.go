@@ -10,7 +10,7 @@ import (
 )
 
 func TestPrefixExtendedCache(t *testing.T) {
-	cache := inmem.NewInMemCache()
+	cache := inmem.NewInMemExtendedCache()
 
 	assert.NoError(t, cache.Set("a", "val_a", 0))
 	assert.NoError(t, cache.Set("prefix:b", "val_b", 0))
