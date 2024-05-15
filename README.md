@@ -8,6 +8,8 @@ type Cache interface {
 	SetTTL(key string, ttl time.Duration) error
 
 	SubCache(prefix string) Cache
+
+	Close() error
 }
 
 type ExtendedCache interface {

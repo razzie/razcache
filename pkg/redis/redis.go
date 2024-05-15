@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"io"
 	"strings"
 	"time"
 
@@ -116,6 +117,13 @@ func (c *redisCache) SubCache(prefix string) razcache.Cache {
 
 func (c *redisCache) SubExtendedCache(prefix string) razcache.ExtendedCache {
 	return razcache.NewPrefixExtendedCache(c, prefix)
+}
+
+func (c *redisCache) Close() error {
+	if client, ok := c.client.(io.Closer); ok {
+		return client.Close()
+	}
+	return nil
 }
 
 func translateRedisError(err error) error {

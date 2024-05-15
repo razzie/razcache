@@ -87,3 +87,7 @@ func (c *prefixExtCache) SubCache(prefix string) Cache {
 func (c *prefixExtCache) SubExtendedCache(prefix string) ExtendedCache {
 	return NewPrefixExtendedCache(c, prefix)
 }
+
+func (c *prefixExtCache) Close() error {
+	return nil
+}

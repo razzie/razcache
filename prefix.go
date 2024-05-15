@@ -39,3 +39,7 @@ func (c *prefixCache) SetTTL(key string, ttl time.Duration) error {
 func (c *prefixCache) SubCache(prefix string) Cache {
 	return NewPrefixCache(c, prefix)
 }
+
+func (c *prefixCache) Close() error {
+	return nil
+}
