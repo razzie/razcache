@@ -10,6 +10,9 @@ type prefixExtCache struct {
 }
 
 func NewPrefixExtendedCache(cache ExtendedCache, prefix string) ExtendedCache {
+	if len(prefix) == 0 {
+		return cache
+	}
 	return &prefixExtCache{
 		cache:  cache,
 		prefix: prefix,
