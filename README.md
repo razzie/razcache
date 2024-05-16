@@ -39,4 +39,8 @@ func NewInMemExtendedCache() ExtendedCache
 // pkg/redis
 func NewRedisCache(redisDSN string) (ExtendedCache, error)
 func NewRedisCacheFromClient(client redis.Cmdable) ExtendedCache
+
+// pkg/badger
+func NewBadgerCache(dir string) (Cache, error)
+func NewBadgerCacheFromDB(db *badger.DB) Cache
 ```
