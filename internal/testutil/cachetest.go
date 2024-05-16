@@ -6,10 +6,23 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/razzie/razcache"
+	"github.com/razzie/razcache"
 )
 
-func TestTTL(t *testing.T, cache Cache) {
+func TestBasic(t *testing.T, cache razcache.Cache) {
+	_, err := cache.Get("key")
+	assert.Equal(t, razcache.ErrNotFound, err)
+
+	assert.NoError(t, cache.Set("key", "value1", 0))
+
+	assert.NoError(t, cache.Set("key", "value2", 0))
+
+	value, err := cache.Get("key")
+	assert.NoError(t, err)
+	assert.Equal(t, "value2", value)
+}
+
+func TestTTL(t *testing.T, cache razcache.Cache) {
 	// key should be present before expiration and gone afterwards
 	assert.NoError(t, cache.Set("key_longrunning", "value", time.Millisecond*2000))
 	assert.NoError(t, cache.Set("key", "value", time.Millisecond*500))
@@ -18,7 +31,7 @@ func TestTTL(t *testing.T, cache Cache) {
 	assert.Equal(t, "value", value)
 	time.Sleep(time.Second)
 	value, err = cache.Get("key")
-	assert.Equal(t, ErrNotFound, err)
+	assert.Equal(t, razcache.ErrNotFound, err)
 	assert.NotEqual(t, "value", value)
 
 	// overwritten key with different TTL should make the value persist
@@ -35,7 +48,7 @@ func TestTTL(t *testing.T, cache Cache) {
 	time.Sleep(time.Second)
 }
 
-func TestLists(t *testing.T, cache ExtendedCache) {
+func TestLists(t *testing.T, cache razcache.ExtendedCache) {
 	// make a list of 1, 2, 3, 4, 5 using both LPush and RPush
 	assert.NoError(t, cache.LPush("list", "3"))
 	assert.NoError(t, cache.LPush("list", "1", "2"))
@@ -72,13 +85,13 @@ func TestLists(t *testing.T, cache ExtendedCache) {
 	// testing list functions on non-list keys
 	assert.NoError(t, cache.Set("non-list", "value", 0))
 	_, err = cache.LLen("non-list")
-	assert.Equal(t, ErrWrongType, err)
-	assert.Equal(t, ErrWrongType, cache.LPush("non-list", "1"))
+	assert.Equal(t, razcache.ErrWrongType, err)
+	assert.Equal(t, razcache.ErrWrongType, cache.LPush("non-list", "1"))
 	_, err = cache.LPop("non-list", 1)
-	assert.Equal(t, ErrWrongType, err)
+	assert.Equal(t, razcache.ErrWrongType, err)
 }
 
-func TestSets(t *testing.T, cache ExtendedCache) {
+func TestSets(t *testing.T, cache razcache.ExtendedCache) {
 	// adding members in multiple steps and asserting correct length
 	assert.NoError(t, cache.SAdd("set", "a", "b", "c"))
 	assert.NoError(t, cache.SAdd("set", "c", "d"))
@@ -95,16 +108,16 @@ func TestSets(t *testing.T, cache ExtendedCache) {
 	// testing set functions on non-set keys
 	assert.NoError(t, cache.Set("non-set", "value", 0))
 	_, err = cache.SLen("non-set")
-	assert.Equal(t, ErrWrongType, err)
-	assert.Equal(t, ErrWrongType, cache.SAdd("non-set", "a"))
-	assert.Equal(t, ErrWrongType, cache.SRem("non-set"))
+	assert.Equal(t, razcache.ErrWrongType, err)
+	assert.Equal(t, razcache.ErrWrongType, cache.SAdd("non-set", "a"))
+	assert.Equal(t, razcache.ErrWrongType, cache.SRem("non-set"))
 }
 
-func TestIncr(t *testing.T, cache ExtendedCache) {
+func TestIncr(t *testing.T, cache razcache.ExtendedCache) {
 	// strings that cannot be converted to int should fail with wrong type
 	assert.NoError(t, cache.Set("non-int", "a", 0))
 	_, err := cache.Incr("non-int", 1)
-	assert.Equal(t, ErrWrongType, err)
+	assert.Equal(t, razcache.ErrWrongType, err)
 
 	// strings that can be converted to int should work
 	assert.NoError(t, cache.Set("int", "2", 0))
