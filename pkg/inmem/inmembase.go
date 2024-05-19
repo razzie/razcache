@@ -1,6 +1,7 @@
 package inmem
 
 import (
+	"errors"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -10,8 +11,12 @@ import (
 	"github.com/razzie/razcache/internal/util"
 )
 
-// special pointer to mark not yet processed TTL data
-var dummyTTLData = &util.TTLItem[string]{}
+var (
+	// special pointer to mark not yet processed TTL data
+	dummyTTLData = &util.TTLItem[string]{}
+
+	ErrCacheClosed = errors.New("cache is closed")
+)
 
 type ttlDataConstraint interface {
 	comparable
@@ -36,21 +41,23 @@ func (item *cacheItemBase) StoreTTLData(val *util.TTLItem[string]) {
 }
 
 type ttlUpdate struct {
-	key     string
-	ttlData ttlData
-	exp     time.Time
+	key  string
+	item ttlData
+	exp  time.Time
 }
 
 type inMemCacheBase[T ttlDataConstraint] struct {
 	items         xsync.MapOf[string, T]
 	ttlQueue      util.TTLQueue[string]
 	ttlUpdateChan chan ttlUpdate
-	closed        atomic.Bool
+	closedChan    chan struct{}
+	isClosed      atomic.Bool
 }
 
 func (cache *inMemCacheBase[T]) init() {
 	cache.items = *xsync.NewMapOf[string, T]()
 	cache.ttlUpdateChan = make(chan ttlUpdate, 64)
+	cache.closedChan = make(chan struct{})
 	go cache.janitor()
 }
 
@@ -59,21 +66,20 @@ func (c *inMemCacheBase[T]) janitor() {
 	defer timer.Stop()
 	for {
 		select {
-		case ttlUpdate, more := <-c.ttlUpdateChan:
-			if !more {
-				c.ttlQueue.Clear()
-				return
-			}
-			ttlData := ttlUpdate.ttlData.LoadTTLData()
-			if ttlData != nil && ttlData != dummyTTLData { // TTL for item already exists
+		case <-c.closedChan:
+			c.ttlQueue.Clear()
+			return
+
+		case ttlUpdate := <-c.ttlUpdateChan:
+			ttlData := ttlUpdate.item.LoadTTLData()
+			if ttlData == dummyTTLData { // creating new TTL
+				ttlUpdate.item.StoreTTLData(c.ttlQueue.Push(ttlUpdate.key, ttlUpdate.exp))
+			} else { // updating TTL for existing item
 				if ttlUpdate.exp.IsZero() { // removing TTL
-					ttlUpdate.ttlData.StoreTTLData(nil)
 					c.ttlQueue.Delete(ttlData)
 				} else { // updating TTL
 					c.ttlQueue.Update(ttlData, ttlUpdate.key, ttlUpdate.exp)
 				}
-			} else { // creating new TTL
-				ttlUpdate.ttlData.StoreTTLData(c.ttlQueue.Push(ttlUpdate.key, ttlUpdate.exp))
 			}
 			if c.ttlQueue.Len() > 0 { // set timer to trigger when the first key expires
 				timer.Reset(time.Until(c.ttlQueue.Peek().Expiration()))
@@ -95,14 +101,13 @@ func (c *inMemCacheBase[T]) janitor() {
 }
 
 func (c *inMemCacheBase[T]) set(key string, item T, ttl time.Duration) error {
+	if c.isClosed.Load() {
+		return ErrCacheClosed
+	}
 	c.items.Store(key, item)
 	if ttl != 0 {
 		item.StoreTTLData(dummyTTLData)
-		c.ttlUpdateChan <- ttlUpdate{
-			key:     key,
-			ttlData: item,
-			exp:     time.Now().Add(ttl),
-		}
+		return c.sendTTLUpdate(key, item, ttl)
 	}
 	return nil
 }
@@ -130,7 +135,7 @@ func (c *inMemCacheBase[T]) GetTTL(key string) (time.Duration, error) {
 		ttlData := item.LoadTTLData()
 		switch ttlData {
 		case dummyTTLData:
-			if c.closed.Load() {
+			if c.isClosed.Load() {
 				return 0, nil
 			}
 			runtime.Gosched() // wait for janitor to assign ttl data
@@ -148,24 +153,31 @@ func (c *inMemCacheBase[T]) SetTTL(key string, ttl time.Duration) error {
 		return razcache.ErrNotFound
 	}
 	if ttl == 0 {
-		c.ttlUpdateChan <- ttlUpdate{
-			key:     key,
-			ttlData: item,
-			exp:     time.Time{},
-		}
-	} else {
-		c.ttlUpdateChan <- ttlUpdate{
-			key:     key,
-			ttlData: item,
-			exp:     time.Now().Add(ttl),
-		}
+		item.StoreTTLData(nil)
 	}
-	return nil
+	return c.sendTTLUpdate(key, item, ttl)
+}
+
+func (c *inMemCacheBase[T]) sendTTLUpdate(key string, item T, ttl time.Duration) error {
+	var exp time.Time
+	if ttl > 0 {
+		exp = time.Now().Add(ttl)
+	}
+	select {
+	case <-c.closedChan:
+		return ErrCacheClosed
+	case c.ttlUpdateChan <- ttlUpdate{
+		key:  key,
+		item: item,
+		exp:  exp,
+	}:
+		return nil
+	}
 }
 
 func (c *inMemCacheBase[T]) Close() error {
-	c.closed.Store(true)
-	close(c.ttlUpdateChan)
+	c.isClosed.Store(true)
+	close(c.closedChan)
 	c.items.Clear()
 	return nil
 }
