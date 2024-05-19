@@ -10,18 +10,17 @@ import (
 	"github.com/razzie/razcache/internal/util"
 )
 
-var (
-	// special pointers to mark a janitor deleted item
-	currentlyDeletingItem = &util.TTLItem[string]{}
-	deletedItem           = &util.TTLItem[string]{}
-	// special pointer to mark not yet processed TTL data
-	dummyTTLData = &util.TTLItem[string]{}
-)
+// special pointer to mark not yet processed TTL data
+var dummyTTLData = &util.TTLItem[string]{}
+
+type ttlDataConstraint interface {
+	comparable
+	ttlData
+}
 
 type ttlData interface {
 	LoadTTLData() *util.TTLItem[string]
 	StoreTTLData(*util.TTLItem[string])
-	CompareAndSwapTTLData(old, new *util.TTLItem[string]) (swapped bool)
 }
 
 type cacheItemBase struct {
@@ -36,17 +35,13 @@ func (item *cacheItemBase) StoreTTLData(val *util.TTLItem[string]) {
 	item.ttlData.Store(val)
 }
 
-func (item *cacheItemBase) CompareAndSwapTTLData(old, new *util.TTLItem[string]) (swapped bool) {
-	return item.ttlData.CompareAndSwap(old, new)
-}
-
 type ttlUpdate struct {
 	key     string
 	ttlData ttlData
 	exp     time.Time
 }
 
-type inMemCacheBase[T ttlData] struct {
+type inMemCacheBase[T ttlDataConstraint] struct {
 	items         xsync.MapOf[string, T]
 	ttlQueue      util.TTLQueue[string]
 	ttlUpdateChan chan ttlUpdate
@@ -89,39 +84,24 @@ func (c *inMemCacheBase[T]) janitor() {
 			for c.ttlQueue.Len() > 0 && c.ttlQueue.Peek().Expiration().Before(time.Now()) {
 				ttlData := c.ttlQueue.Pop()
 				key := ttlData.Value()
-				// mark the item deleted by the janitor
-				if item, ok := c.items.Load(key); ok && item.CompareAndSwapTTLData(ttlData, currentlyDeletingItem) {
-					c.items.Delete(key)
-					item.StoreTTLData(deletedItem)
-				}
+				c.items.Compute(key, func(oldValue T, loaded bool) (newValue T, delete bool) {
+					delete = !loaded || (loaded && oldValue.LoadTTLData() == ttlData)
+					newValue = oldValue
+					return
+				})
 			}
 		}
 	}
 }
 
 func (c *inMemCacheBase[T]) set(key string, item T, ttl time.Duration) error {
-	old, oldExists := c.items.LoadAndStore(key, item)
+	c.items.Store(key, item)
 	if ttl != 0 {
 		item.StoreTTLData(dummyTTLData)
 		c.ttlUpdateChan <- ttlUpdate{
 			key:     key,
 			ttlData: item,
 			exp:     time.Now().Add(ttl),
-		}
-	}
-	// it's possible the janitor has just deleted the new item due to TTL inconsistency,
-	// so let's store it again
-	if oldExists {
-		for {
-			switch old.LoadTTLData() {
-			case currentlyDeletingItem:
-				runtime.Gosched() // wait for janitor to delete previous item
-			case deletedItem:
-				c.items.Store(key, item)
-				return nil
-			default:
-				return nil
-			}
 		}
 	}
 	return nil
@@ -154,8 +134,6 @@ func (c *inMemCacheBase[T]) GetTTL(key string) (time.Duration, error) {
 				return 0, nil
 			}
 			runtime.Gosched() // wait for janitor to assign ttl data
-		case currentlyDeletingItem, deletedItem:
-			return 0, razcache.ErrNotFound
 		case nil:
 			return 0, nil
 		default:
