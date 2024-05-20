@@ -62,9 +62,12 @@ func (c *inMemExtCache) Get(key string) (string, error) {
 }
 
 func (c *inMemExtCache) getList(key string) (*util.List[string], error) {
-	item, _ := c.items.LoadOrCompute(key, func() *extCacheItem {
+	item, _, err := c.getOrCompute(key, func() *extCacheItem {
 		return newExtCacheItem(new(util.List[string]))
 	})
+	if err != nil {
+		return nil, err
+	}
 	if value, ok := item.getValue().(*util.List[string]); ok {
 		return value, nil
 	}
@@ -122,9 +125,12 @@ func (c *inMemExtCache) LRange(key string, start, stop int) ([]string, error) {
 }
 
 func (c *inMemExtCache) getSet(key string) (*xsync.Map, error) {
-	item, _ := c.items.LoadOrCompute(key, func() *extCacheItem {
+	item, _, err := c.getOrCompute(key, func() *extCacheItem {
 		return newExtCacheItem(xsync.NewMap())
 	})
+	if err != nil {
+		return nil, err
+	}
 	if value, ok := item.getValue().(*xsync.Map); ok {
 		return value, nil
 	}
@@ -171,9 +177,12 @@ func (c *inMemExtCache) SLen(key string) (int, error) {
 }
 
 func (c *inMemExtCache) Incr(key string, increment int64) (int64, error) {
-	item, loaded := c.items.LoadOrCompute(key, func() *extCacheItem {
+	item, loaded, err := c.getOrCompute(key, func() *extCacheItem {
 		return newExtCacheItem(&increment)
 	})
+	if err != nil {
+		return 0, err
+	}
 	if !loaded {
 		return increment, nil
 	}

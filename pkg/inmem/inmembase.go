@@ -47,15 +47,14 @@ type ttlUpdate struct {
 }
 
 type inMemCacheBase[T ttlDataConstraint] struct {
-	items         xsync.MapOf[string, T]
+	items         atomic.Pointer[xsync.MapOf[string, T]]
 	ttlQueue      util.TTLQueue[string]
 	ttlUpdateChan chan ttlUpdate
 	closedChan    chan struct{}
-	isClosed      atomic.Bool
 }
 
 func (cache *inMemCacheBase[T]) init() {
-	cache.items = *xsync.NewMapOf[string, T]()
+	cache.items.Store(xsync.NewMapOf[string, T]())
 	cache.ttlUpdateChan = make(chan ttlUpdate, 64)
 	cache.closedChan = make(chan struct{})
 	go cache.janitor()
@@ -64,6 +63,11 @@ func (cache *inMemCacheBase[T]) init() {
 func (c *inMemCacheBase[T]) janitor() {
 	timer := time.NewTimer(time.Millisecond)
 	defer timer.Stop()
+	defer close(c.ttlUpdateChan)
+	defer func() {
+		items := c.items.Swap(nil)
+		items.Clear()
+	}()
 	for {
 		select {
 		case <-c.closedChan:
@@ -90,7 +94,7 @@ func (c *inMemCacheBase[T]) janitor() {
 			for c.ttlQueue.Len() > 0 && c.ttlQueue.Peek().Expiration().Before(time.Now()) {
 				ttlData := c.ttlQueue.Pop()
 				key := ttlData.Value()
-				c.items.Compute(key, func(oldValue T, loaded bool) (newValue T, delete bool) {
+				c.items.Load().Compute(key, func(oldValue T, loaded bool) (newValue T, delete bool) {
 					delete = !loaded || (loaded && oldValue.LoadTTLData() == ttlData)
 					newValue = oldValue
 					return
@@ -101,10 +105,11 @@ func (c *inMemCacheBase[T]) janitor() {
 }
 
 func (c *inMemCacheBase[T]) set(key string, item T, ttl time.Duration) error {
-	if c.isClosed.Load() {
+	items := c.items.Load()
+	if items == nil {
 		return ErrCacheClosed
 	}
-	c.items.Store(key, item)
+	items.Store(key, item)
 	if ttl != 0 {
 		item.StoreTTLData(dummyTTLData)
 		return c.sendTTLUpdate(key, item, ttl)
@@ -113,29 +118,48 @@ func (c *inMemCacheBase[T]) set(key string, item T, ttl time.Duration) error {
 }
 
 func (c *inMemCacheBase[T]) get(key string) (item T, err error) {
+	items := c.items.Load()
+	if items == nil {
+		err = ErrCacheClosed
+		return
+	}
 	var ok bool
-	item, ok = c.items.Load(key)
+	item, ok = items.Load(key)
 	if !ok {
 		err = razcache.ErrNotFound
 	}
 	return
 }
 
+func (c *inMemCacheBase[T]) getOrCompute(key string, compute func() T) (item T, loaded bool, err error) {
+	items := c.items.Load()
+	if items == nil {
+		err = ErrCacheClosed
+		return
+	}
+	item, loaded = items.LoadOrCompute(key, compute)
+	return
+}
+
 func (c *inMemCacheBase[T]) Del(key string) error {
-	c.items.Delete(key)
+	items := c.items.Load()
+	if items == nil {
+		return ErrCacheClosed
+	}
+	items.Delete(key)
 	return nil
 }
 
 func (c *inMemCacheBase[T]) GetTTL(key string) (time.Duration, error) {
-	item, ok := c.items.Load(key)
-	if !ok {
-		return 0, razcache.ErrNotFound
+	item, err := c.get(key)
+	if err != nil {
+		return 0, err
 	}
 	for {
 		ttlData := item.LoadTTLData()
 		switch ttlData {
 		case dummyTTLData:
-			if c.isClosed.Load() {
+			if c.items.Load() == nil { // closed
 				return 0, nil
 			}
 			runtime.Gosched() // wait for janitor to assign ttl data
@@ -148,9 +172,9 @@ func (c *inMemCacheBase[T]) GetTTL(key string) (time.Duration, error) {
 }
 
 func (c *inMemCacheBase[T]) SetTTL(key string, ttl time.Duration) error {
-	item, ok := c.items.Load(key)
-	if !ok {
-		return razcache.ErrNotFound
+	item, err := c.get(key)
+	if err != nil {
+		return err
 	}
 	if ttl == 0 {
 		item.StoreTTLData(nil)
@@ -176,8 +200,6 @@ func (c *inMemCacheBase[T]) sendTTLUpdate(key string, item T, ttl time.Duration)
 }
 
 func (c *inMemCacheBase[T]) Close() error {
-	c.isClosed.Store(true)
 	close(c.closedChan)
-	c.items.Clear()
 	return nil
 }
