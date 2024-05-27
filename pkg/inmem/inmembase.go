@@ -13,7 +13,7 @@ import (
 
 var (
 	// special pointer to mark not yet processed TTL data
-	dummyTTLData = &util.TTLItem[string]{}
+	ttlNotYetProcessed = &util.TTLItem[string]{}
 
 	ErrCacheClosed = errors.New("cache is closed")
 )
@@ -76,7 +76,7 @@ func (c *inMemCacheBase[T]) janitor() {
 
 		case ttlUpdate := <-c.ttlUpdateChan:
 			ttlData := ttlUpdate.item.LoadTTLData()
-			if ttlData == dummyTTLData { // creating new TTL
+			if ttlData == ttlNotYetProcessed { // creating new TTL
 				ttlUpdate.item.StoreTTLData(c.ttlQueue.Push(ttlUpdate.key, ttlUpdate.exp))
 			} else { // updating TTL for existing item
 				if ttlUpdate.exp.IsZero() { // removing TTL
@@ -111,7 +111,7 @@ func (c *inMemCacheBase[T]) set(key string, item T, ttl time.Duration) error {
 	}
 	items.Store(key, item)
 	if ttl != 0 {
-		item.StoreTTLData(dummyTTLData)
+		item.StoreTTLData(ttlNotYetProcessed)
 		return c.sendTTLUpdate(key, item, ttl)
 	}
 	return nil
@@ -158,7 +158,7 @@ func (c *inMemCacheBase[T]) GetTTL(key string) (time.Duration, error) {
 	for {
 		ttlData := item.LoadTTLData()
 		switch ttlData {
-		case dummyTTLData:
+		case ttlNotYetProcessed:
 			if c.items.Load() == nil { // closed
 				return 0, nil
 			}
