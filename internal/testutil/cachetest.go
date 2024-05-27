@@ -23,29 +23,31 @@ func TestBasic(t *testing.T, cache razcache.Cache) {
 }
 
 func TestTTL(t *testing.T, cache razcache.Cache) {
+	const ttl = time.Millisecond * 50
+
 	// key should be present before expiration and gone afterwards
-	assert.NoError(t, cache.Set("key_longrunning", "value", time.Millisecond*2000))
-	assert.NoError(t, cache.Set("key", "value", time.Millisecond*500))
+	assert.NoError(t, cache.Set("key_longrunning", "value", ttl*4))
+	assert.NoError(t, cache.Set("key", "value", ttl))
 	value, err := cache.Get("key")
 	assert.NoError(t, err)
 	assert.Equal(t, "value", value)
-	time.Sleep(time.Second)
+	time.Sleep(ttl * 2)
 	value, err = cache.Get("key")
 	assert.Equal(t, razcache.ErrNotFound, err)
 	assert.NotEqual(t, "value", value)
 
 	// overwritten key with different TTL should make the value persist
-	assert.NoError(t, cache.Set("key2", "value2", time.Millisecond*500))
+	assert.NoError(t, cache.Set("key2", "value2", ttl))
 	assert.NoError(t, cache.Set("key2", "newvalue2", 0))
-	time.Sleep(time.Second)
+	time.Sleep(ttl * 2)
 	value, err = cache.Get("key2")
 	assert.NoError(t, err)
 	assert.Equal(t, "newvalue2", value)
 
 	// make sure janitor won't crash if key is removed before expiration
-	assert.NoError(t, cache.Set("key3", "value3", time.Millisecond*500))
+	assert.NoError(t, cache.Set("key3", "value3", ttl))
 	assert.NoError(t, cache.Del("key3"))
-	time.Sleep(time.Second)
+	time.Sleep(ttl * 2)
 }
 
 func TestLists(t *testing.T, cache razcache.ExtendedCache) {
