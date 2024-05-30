@@ -2,6 +2,7 @@ package inmem_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/razzie/razcache/internal/testutil"
 	. "github.com/razzie/razcache/pkg/inmem"
@@ -16,7 +17,7 @@ func TestInMemExtBasic(t *testing.T) {
 func TestInMemExtTTL(t *testing.T) {
 	cache := NewInMemExtendedCache()
 	defer cache.Close()
-	testutil.TestTTL(t, cache)
+	testutil.TestTTL(t, cache, time.Millisecond*50)
 }
 
 func TestInMemExtLists(t *testing.T) {

@@ -22,12 +22,10 @@ func TestBasic(t *testing.T, cache razcache.Cache) {
 	assert.Equal(t, "value2", value)
 }
 
-func TestTTL(t *testing.T, cache razcache.Cache) {
-	const ttl = time.Millisecond * 50
-
+func TestTTL(t *testing.T, cache razcache.Cache, ttlGran time.Duration) {
 	// key should be present before expiration and gone afterwards
-	assert.NoError(t, cache.Set("key1", "value1", ttl*3))
-	assert.NoError(t, cache.Set("key2", "value2", ttl))
+	assert.NoError(t, cache.Set("key1", "value1", ttlGran*3))
+	assert.NoError(t, cache.Set("key2", "value2", ttlGran))
 
 	value, err := cache.Get("key1")
 	assert.NoError(t, err)
@@ -36,7 +34,7 @@ func TestTTL(t *testing.T, cache razcache.Cache) {
 	assert.NoError(t, err)
 	assert.Equal(t, "value2", value)
 
-	time.Sleep(ttl * 2)
+	time.Sleep(ttlGran * 2)
 
 	value, err = cache.Get("key1")
 	assert.NoError(t, err)
@@ -44,25 +42,25 @@ func TestTTL(t *testing.T, cache razcache.Cache) {
 	_, err = cache.Get("key2")
 	assert.Equal(t, razcache.ErrNotFound, err)
 
-	time.Sleep(ttl * 2)
+	time.Sleep(ttlGran * 2)
 
 	_, err = cache.Get("key1")
 	assert.Equal(t, razcache.ErrNotFound, err)
 
 	// overwritten key with different TTL should make the value persist
-	assert.NoError(t, cache.Set("key2", "value2", ttl))
+	assert.NoError(t, cache.Set("key2", "value2", ttlGran))
 	assert.NoError(t, cache.Set("key2", "newvalue2", 0))
 
-	time.Sleep(ttl * 2)
+	time.Sleep(ttlGran * 2)
 
 	value, err = cache.Get("key2")
 	assert.NoError(t, err)
 	assert.Equal(t, "newvalue2", value)
 
 	// make sure janitor won't crash if key is removed before expiration
-	assert.NoError(t, cache.Set("key3", "value3", ttl))
+	assert.NoError(t, cache.Set("key3", "value3", ttlGran))
 	assert.NoError(t, cache.Del("key3"))
-	time.Sleep(ttl * 2)
+	time.Sleep(ttlGran * 2)
 }
 
 func TestLists(t *testing.T, cache razcache.ExtendedCache) {

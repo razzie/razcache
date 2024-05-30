@@ -2,6 +2,7 @@ package inmem_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/razzie/razcache/internal/testutil"
 	. "github.com/razzie/razcache/pkg/inmem"
@@ -16,5 +17,5 @@ func TestInMemBasic(t *testing.T) {
 func TestInMemTTL(t *testing.T) {
 	cache := NewInMemCache()
 	defer cache.Close()
-	testutil.TestTTL(t, cache)
+	testutil.TestTTL(t, cache, time.Millisecond*50)
 }
