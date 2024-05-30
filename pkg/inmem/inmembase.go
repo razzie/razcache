@@ -62,7 +62,6 @@ func (cache *inMemCacheBase[T]) init() {
 
 func (c *inMemCacheBase[T]) janitor() {
 	timer := time.NewTimer(0)
-	timerRunning := true
 	var nextExp time.Time
 
 	defer func() {
@@ -98,22 +97,20 @@ func (c *inMemCacheBase[T]) janitor() {
 			if c.ttlQueue.Len() > 0 {
 				prevExp := nextExp
 				nextExp = c.ttlQueue.Peek().Expiration()
-				if timerRunning {
-					if nextExp.Before(prevExp) {
-						if !timer.Stop() {
-							<-timer.C
-						}
-						timer.Reset(time.Until(nextExp))
-						timerRunning = true
+				if nextExp.Before(prevExp) || prevExp.IsZero() {
+					if !timer.Stop() {
+						<-timer.C
 					}
-				} else {
 					timer.Reset(time.Until(nextExp))
-					timerRunning = true
 				}
+			} else {
+				if !timer.Stop() {
+					<-timer.C
+				}
+				nextExp = time.Time{}
 			}
 
 		case <-timer.C:
-			timerRunning = false
 			now := time.Now()
 			// check if the next items are about to expire
 			for c.ttlQueue.Len() > 0 && c.ttlQueue.Peek().Expiration().Before(now) {
@@ -129,7 +126,8 @@ func (c *inMemCacheBase[T]) janitor() {
 			if c.ttlQueue.Len() > 0 {
 				nextExp = c.ttlQueue.Peek().Expiration()
 				timer.Reset(time.Until(nextExp))
-				timerRunning = true
+			} else {
+				nextExp = time.Time{}
 			}
 		}
 	}
