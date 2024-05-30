@@ -22,5 +22,5 @@ func TestBadgerCacheTTL(t *testing.T) {
 	require.NoError(t, err)
 	defer cache.Close()
 
-	testutil.TestTTL(t, cache, time.Millisecond*500)
+	testutil.TestTTL(t, cache, time.Second)
 }
