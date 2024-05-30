@@ -5,11 +5,10 @@ import (
 
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/razzie/razcache"
+	"github.com/razzie/razcache/internal/util"
 )
 
-type badgerCache struct {
-	db *badger.DB
-}
+type badgerCache badger.DB
 
 func NewBadgerCache(dir string) (razcache.Cache, error) {
 	opts := badger.DefaultOptions(dir)
@@ -20,48 +19,46 @@ func NewBadgerCache(dir string) (razcache.Cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &badgerCache{db: db}, nil
+	return (*badgerCache)(db), nil
 }
 
 func NewBadgerCacheFromDB(db *badger.DB) razcache.Cache {
-	return &badgerCache{db: db}
+	return (*badgerCache)(db)
 }
 
 func (c *badgerCache) Get(key string) (val string, err error) {
-	err = translateBadgerError(c.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(key))
+	err = translateBadgerError((*badger.DB)(c).View(func(txn *badger.Txn) error {
+		item, err := txn.Get(util.YoloBytes(key))
 		if err != nil {
 			return err
 		}
-		raw, err := item.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
-		val = string(raw)
-		return nil
+		return item.Value(func(raw []byte) error {
+			val = string(raw)
+			return nil
+		})
 	}))
 	return
 }
 
 func (c *badgerCache) Set(key string, value string, ttl time.Duration) error {
-	e := badger.NewEntry([]byte(key), []byte(value))
+	e := badger.NewEntry(util.YoloBytes(key), util.YoloBytes(value))
 	if ttl > 0 {
 		e = e.WithTTL(ttl)
 	}
-	return translateBadgerError(c.db.Update(func(txn *badger.Txn) error {
+	return translateBadgerError((*badger.DB)(c).Update(func(txn *badger.Txn) error {
 		return txn.SetEntry(e)
 	}))
 }
 
 func (c *badgerCache) Del(key string) error {
-	return translateBadgerError(c.db.Update(func(txn *badger.Txn) error {
-		return txn.Delete([]byte(key))
+	return translateBadgerError((*badger.DB)(c).Update(func(txn *badger.Txn) error {
+		return txn.Delete(util.YoloBytes(key))
 	}))
 }
 
 func (c *badgerCache) GetTTL(key string) (ttl time.Duration, err error) {
-	err = translateBadgerError(c.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(key))
+	err = translateBadgerError((*badger.DB)(c).View(func(txn *badger.Txn) error {
+		item, err := txn.Get(util.YoloBytes(key))
 		if err != nil {
 			return err
 		}
@@ -75,8 +72,8 @@ func (c *badgerCache) GetTTL(key string) (ttl time.Duration, err error) {
 }
 
 func (c *badgerCache) SetTTL(key string, ttl time.Duration) error {
-	return translateBadgerError(c.db.Update(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(key))
+	return translateBadgerError((*badger.DB)(c).Update(func(txn *badger.Txn) error {
+		item, err := txn.Get(util.YoloBytes(key))
 		if err != nil {
 			return err
 		}
@@ -84,7 +81,7 @@ func (c *badgerCache) SetTTL(key string, ttl time.Duration) error {
 		if err != nil {
 			return err
 		}
-		e := badger.NewEntry([]byte(key), val)
+		e := badger.NewEntry(util.YoloBytes(key), val)
 		if ttl > 0 {
 			e = e.WithTTL(ttl)
 		}
@@ -97,7 +94,7 @@ func (c *badgerCache) SubCache(prefix string) razcache.Cache {
 }
 
 func (c *badgerCache) Close() error {
-	return c.db.Close()
+	return (*badger.DB)(c).Close()
 }
 
 func translateBadgerError(err error) error {
