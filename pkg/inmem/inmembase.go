@@ -61,13 +61,22 @@ func (cache *inMemCacheBase[T]) init() {
 }
 
 func (c *inMemCacheBase[T]) janitor() {
-	timer := time.NewTimer(time.Millisecond)
-	defer timer.Stop()
-	defer close(c.ttlUpdateChan)
+	timer := time.NewTimer(0)
+	timerRunning := true
+	var nextExp time.Time
+
 	defer func() {
+		close(c.ttlUpdateChan)
+
 		items := c.items.Swap(nil)
 		items.Clear()
+
+		if !timer.Stop() {
+			<-timer.C
+		}
+		timer = nil
 	}()
+
 	for {
 		select {
 		case <-c.closedChan:
@@ -85,13 +94,29 @@ func (c *inMemCacheBase[T]) janitor() {
 					c.ttlQueue.Update(ttlData, ttlUpdate.key, ttlUpdate.exp)
 				}
 			}
-			if c.ttlQueue.Len() > 0 { // set timer to trigger when the first key expires
-				timer.Reset(time.Until(c.ttlQueue.Peek().Expiration()))
+			// update timer to trigger when the first key expires
+			if c.ttlQueue.Len() > 0 {
+				prevExp := nextExp
+				nextExp = c.ttlQueue.Peek().Expiration()
+				if timerRunning {
+					if nextExp.Before(prevExp) {
+						if !timer.Stop() {
+							<-timer.C
+						}
+						timer.Reset(time.Until(nextExp))
+						timerRunning = true
+					}
+				} else {
+					timer.Reset(time.Until(nextExp))
+					timerRunning = true
+				}
 			}
 
 		case <-timer.C:
+			timerRunning = false
+			now := time.Now()
 			// check if the next items are about to expire
-			for c.ttlQueue.Len() > 0 && c.ttlQueue.Peek().Expiration().Before(time.Now()) {
+			for c.ttlQueue.Len() > 0 && c.ttlQueue.Peek().Expiration().Before(now) {
 				ttlData := c.ttlQueue.Pop()
 				key := ttlData.Value()
 				c.items.Load().Compute(key, func(oldValue T, loaded bool) (newValue T, delete bool) {
@@ -99,6 +124,12 @@ func (c *inMemCacheBase[T]) janitor() {
 					newValue = oldValue
 					return
 				})
+			}
+			// reset timer for next item in queue
+			if c.ttlQueue.Len() > 0 {
+				nextExp = c.ttlQueue.Peek().Expiration()
+				timer.Reset(time.Until(nextExp))
+				timerRunning = true
 			}
 		}
 	}
