@@ -2,6 +2,7 @@ package badger_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/razzie/razcache/internal/testutil"
 	. "github.com/razzie/razcache/pkg/badger"
@@ -14,4 +15,12 @@ func TestBadgerCache(t *testing.T) {
 	defer cache.Close()
 
 	testutil.TestBasic(t, cache)
+}
+
+func TestBadgerCacheTTL(t *testing.T) {
+	cache, err := NewBadgerCache("")
+	require.NoError(t, err)
+	defer cache.Close()
+
+	testutil.TestTTL(t, cache, time.Millisecond*500)
 }
