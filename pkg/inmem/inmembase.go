@@ -8,12 +8,12 @@ import (
 
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/razzie/razcache"
-	"github.com/razzie/razcache/internal/util"
+	"github.com/razzie/razcache/pkg/inmem/internal"
 )
 
 var (
 	// special pointer to mark not yet processed TTL data
-	ttlNotYetProcessed = &util.TTLItem[string]{}
+	ttlNotYetProcessed = &internal.TTLItem[string]{}
 
 	ErrCacheClosed = errors.New("cache is closed")
 )
@@ -24,19 +24,19 @@ type ttlDataConstraint interface {
 }
 
 type ttlData interface {
-	LoadTTLData() *util.TTLItem[string]
-	StoreTTLData(*util.TTLItem[string])
+	LoadTTLData() *internal.TTLItem[string]
+	StoreTTLData(*internal.TTLItem[string])
 }
 
 type cacheItemBase struct {
-	ttlData atomic.Pointer[util.TTLItem[string]]
+	ttlData atomic.Pointer[internal.TTLItem[string]]
 }
 
-func (item *cacheItemBase) LoadTTLData() *util.TTLItem[string] {
+func (item *cacheItemBase) LoadTTLData() *internal.TTLItem[string] {
 	return item.ttlData.Load()
 }
 
-func (item *cacheItemBase) StoreTTLData(val *util.TTLItem[string]) {
+func (item *cacheItemBase) StoreTTLData(val *internal.TTLItem[string]) {
 	item.ttlData.Store(val)
 }
 
@@ -48,7 +48,7 @@ type ttlUpdate struct {
 
 type inMemCacheBase[T ttlDataConstraint] struct {
 	items         atomic.Pointer[xsync.MapOf[string, T]]
-	ttlQueue      util.TTLQueue[string]
+	ttlQueue      internal.TTLQueue[string]
 	ttlUpdateChan chan ttlUpdate
 	closedChan    chan struct{}
 }

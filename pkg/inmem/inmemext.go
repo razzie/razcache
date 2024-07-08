@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/razzie/razcache"
-	"github.com/razzie/razcache/internal/util"
+	"github.com/razzie/razcache/pkg/inmem/internal"
 
 	"github.com/puzpuzpuz/xsync/v3"
 )
@@ -61,14 +61,14 @@ func (c *inMemExtCache) Get(key string) (string, error) {
 	}
 }
 
-func (c *inMemExtCache) getList(key string) (*util.List[string], error) {
+func (c *inMemExtCache) getList(key string) (*internal.List[string], error) {
 	item, _, err := c.getOrCompute(key, func() *extCacheItem {
-		return newExtCacheItem(new(util.List[string]))
+		return newExtCacheItem(new(internal.List[string]))
 	})
 	if err != nil {
 		return nil, err
 	}
-	if value, ok := item.getValue().(*util.List[string]); ok {
+	if value, ok := item.getValue().(*internal.List[string]); ok {
 		return value, nil
 	}
 	return nil, razcache.ErrWrongType

@@ -2,10 +2,10 @@ package badger
 
 import (
 	"time"
+	"unsafe"
 
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/razzie/razcache"
-	"github.com/razzie/razcache/internal/util"
 )
 
 type badgerCache badger.DB
@@ -28,7 +28,7 @@ func NewBadgerCacheFromDB(db *badger.DB) razcache.Cache {
 
 func (c *badgerCache) Get(key string) (val string, err error) {
 	err = translateBadgerError((*badger.DB)(c).View(func(txn *badger.Txn) error {
-		item, err := txn.Get(util.YoloBytes(key))
+		item, err := txn.Get(yoloBytes(key))
 		if err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ func (c *badgerCache) Get(key string) (val string, err error) {
 }
 
 func (c *badgerCache) Set(key string, value string, ttl time.Duration) error {
-	e := badger.NewEntry(util.YoloBytes(key), util.YoloBytes(value))
+	e := badger.NewEntry(yoloBytes(key), yoloBytes(value))
 	if ttl > 0 {
 		e = e.WithTTL(ttl)
 	}
@@ -52,13 +52,13 @@ func (c *badgerCache) Set(key string, value string, ttl time.Duration) error {
 
 func (c *badgerCache) Del(key string) error {
 	return translateBadgerError((*badger.DB)(c).Update(func(txn *badger.Txn) error {
-		return txn.Delete(util.YoloBytes(key))
+		return txn.Delete(yoloBytes(key))
 	}))
 }
 
 func (c *badgerCache) GetTTL(key string) (ttl time.Duration, err error) {
 	err = translateBadgerError((*badger.DB)(c).View(func(txn *badger.Txn) error {
-		item, err := txn.Get(util.YoloBytes(key))
+		item, err := txn.Get(yoloBytes(key))
 		if err != nil {
 			return err
 		}
@@ -73,7 +73,7 @@ func (c *badgerCache) GetTTL(key string) (ttl time.Duration, err error) {
 
 func (c *badgerCache) SetTTL(key string, ttl time.Duration) error {
 	return translateBadgerError((*badger.DB)(c).Update(func(txn *badger.Txn) error {
-		item, err := txn.Get(util.YoloBytes(key))
+		item, err := txn.Get(yoloBytes(key))
 		if err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func (c *badgerCache) SetTTL(key string, ttl time.Duration) error {
 		if err != nil {
 			return err
 		}
-		e := badger.NewEntry(util.YoloBytes(key), val)
+		e := badger.NewEntry(yoloBytes(key), val)
 		if ttl > 0 {
 			e = e.WithTTL(ttl)
 		}
@@ -102,4 +102,11 @@ func translateBadgerError(err error) error {
 		err = razcache.ErrNotFound
 	}
 	return err
+}
+
+func yoloBytes(s string) []byte {
+	if s == "" {
+		return nil
+	}
+	return unsafe.Slice(unsafe.StringData(s), len(s))
 }

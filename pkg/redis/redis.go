@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/razzie/razcache"
-	"github.com/razzie/razcache/internal/util"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -57,12 +56,12 @@ func (c *redisCache) SetTTL(key string, ttl time.Duration) error {
 }
 
 func (c *redisCache) LPush(key string, values ...string) error {
-	err := c.client.LPush(context.Background(), key, util.StringToAnySlice(values)...).Err()
+	err := c.client.LPush(context.Background(), key, stringToAnySlice(values)...).Err()
 	return translateRedisError(err)
 }
 
 func (c *redisCache) RPush(key string, values ...string) error {
-	err := c.client.RPush(context.Background(), key, util.StringToAnySlice(values)...).Err()
+	err := c.client.RPush(context.Background(), key, stringToAnySlice(values)...).Err()
 	return translateRedisError(err)
 }
 
@@ -87,12 +86,12 @@ func (c *redisCache) LRange(key string, start, stop int) ([]string, error) {
 }
 
 func (c *redisCache) SAdd(key string, values ...string) error {
-	err := c.client.SAdd(context.Background(), key, util.StringToAnySlice(values)...).Err()
+	err := c.client.SAdd(context.Background(), key, stringToAnySlice(values)...).Err()
 	return translateRedisError(err)
 }
 
 func (c *redisCache) SRem(key string, values ...string) error {
-	err := c.client.SRem(context.Background(), key, util.StringToAnySlice(values)...).Err()
+	err := c.client.SRem(context.Background(), key, stringToAnySlice(values)...).Err()
 	return translateRedisError(err)
 }
 
@@ -137,4 +136,12 @@ func translateRedisError(err error) error {
 	default:
 		return err
 	}
+}
+
+func stringToAnySlice(strings []string) []any {
+	result := make([]any, len(strings))
+	for i, str := range strings {
+		result[i] = str
+	}
+	return result
 }
