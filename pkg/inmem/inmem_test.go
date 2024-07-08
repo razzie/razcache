@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/razzie/razcache/internal/testutil"
 	. "github.com/razzie/razcache/pkg/inmem"
+	"github.com/razzie/razcache/pkg/testutil"
 )
 
 func TestInMemBasic(t *testing.T) {
